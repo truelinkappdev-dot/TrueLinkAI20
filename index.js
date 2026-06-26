@@ -1,58 +1,58 @@
-import express from 'express';
-import cors from 'cors';
-import { GoogleGenAI } from '@google/genai';
-
+const express = require('express');
+const { GoogleGenAI } = require('@google/genai');
 const app = express();
 
-app.use(cors());
+// Tells our program to understand JSON data packets
 app.use(express.json());
 
-// Initialize the Google Gen AI SDK safely
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey }); 
+// Load your free Gemini AI key safely
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// 1. Base Core Test Route
-app.get('/', (req, res) => {
-    res.json({ status: "success", message: "TrueLink Security Core API is active." });
-});
+// This is our digital Castle Gate endpoint
+app.post('/api/network-interceptor', async (req, res) => {
+    const { senderId, messageBody } = req.body;
 
-// 2. Gemini AI Chat Endpoint with Deep Logging
-app.post('/api/chat', async (req, res) => {
-    console.log("--- New Incoming Request ---");
-    console.log("Received Payload body:", req.body);
-    
+    console.log(`📡 [Gatekeeper] Paused message from: ${senderId}`);
+
     try {
-        const { prompt } = req.body;
-        
-        if (!prompt) {
-            console.log("Error: Prompt parameter missing from request.");
-            return res.status(400).json({ success: false, error: "Prompt is required." });
+        // RULE 1: If the sender is an official Bank, let it pass instantly!
+        const banksList = ["HDFCBK", "BARODA", "AXISBK", "GOVT"];
+        const isOfficial = banksList.some(bank => senderId.toUpperCase().includes(bank));
+
+        if (isOfficial) {
+            console.log(`✅ Safe Bank message. Delivering to user.`);
+            return res.status(200).json({ action: "DELIVER" });
         }
 
-        if (!apiKey) {
-            console.log("Error: GEMINI_API_KEY is not configured in Render Environment.");
-            return res.status(500).json({ success: false, error: "API Key missing on server configuration." });
-        }
+        // RULE 2: Ask Gemini AI if the text contains a link or a scam trick
+        const aiRules = `
+            You are a security guard. Check this message text for fake links or spam traps like "10k prize":
+            "${messageBody}"
+            Reply with exactly this JSON formatting structure:
+            { "safe": false } OR { "safe": true }
+        `;
 
-        console.log("Forwarding to Gemini AI Engine using prompt:", prompt);
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
+        const aiOutput = await ai.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: aiRules
         });
 
-        console.log("Gemini response generated successfully.");
-        res.json({ success: true, text: response.text });
+        const cleanJson = aiOutput.text.replace(/```json/g, "").replace(/```/g, "").trim();
+        const verdict = JSON.parse(cleanJson);
+
+        // RULE 3: If Gemini says it's unsafe, drop it in the trash!
+        if (verdict.safe === true) {
+            console.log(`✅ AI approved. Delivering message.`);
+            return res.status(200).json({ action: "DELIVER" });
+        } else {
+            console.warn(`❌ ALERT: Scam link caught! Dropping text in the trash.`);
+            return res.status(200).json({ action: "DROP_AND_DELETE_PERMANENTLY" });
+        }
 
     } catch (error) {
-        // This prints the EXACT reason for the 500 crash directly into your Render Logs console!
-        console.error("CRITICAL BACKEND CRASH LOG:", error);
-        res.status(500).json({ success: false, error: error.message });
+        // If the server glitches, just deliver the message so nothing important breaks
+        return res.status(200).json({ action: "DELIVER" });
     }
 });
 
-// 3. Dynamic Port Allocation for Render Cloud Hosting
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`TrueLink Security Core running seamlessly on port ${PORT}`);
-});
+app.listen(3000, () => console.log(`🚀 Code simulator is running!`));
