@@ -2,11 +2,14 @@ import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 
 const app = express();
-const ai = new GoogleGenAI(); 
 
+// Initialize the SDK by passing the API key explicitly
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); 
+
+// Middleware to parse incoming JSON bodies from your frontend app
 app.use(express.json());
 
-// 1. Base Test Route
+// 1. Base Test Route (To check if your server is awake)
 app.get('/', (req, res) => {
     res.json({ status: "success", message: "TrueLink Security Core API is active." });
 });
@@ -31,7 +34,7 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 3. Dynamic Port Allocation
+// 3. Dynamic Port Allocation for Render Deployment
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`TrueLink Security Core running seamlessly on port ${PORT}`);
